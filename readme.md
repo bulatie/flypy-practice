@@ -40,6 +40,7 @@
 ## 练习
 
 基于我的心法，我做了一个练习游戏来提高双拼（不包括双形）的输入速度。
+[练习地址](https://bulatie.github.io/flypy-practice/)
 
 ## 工具
 
