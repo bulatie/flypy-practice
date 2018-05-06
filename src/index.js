@@ -3,6 +3,8 @@ import { render } from 'react-dom'
 import _ from 'lodash'
 import injectSheet from 'react-jss'
 
+import logoUrl from './github.png'
+
 const mData = {
   iu: 'q',
   ei: 'w',
@@ -311,7 +313,7 @@ class App extends Component {
     return (
       <div className={classes.root}>
         <a className={classes.logo} href="https://github.com/bulatie/flypy-practice">
-          <img src="/github.png" alt="repository" />
+          <img src={logoUrl} alt="repository" />
         </a>
         <p>题： {subjectText}</p>
         <input className={classes.input} value={inputValue} onChange={this.onChange} ref={this.inputRef} />
