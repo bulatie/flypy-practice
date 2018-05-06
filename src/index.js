@@ -68,6 +68,16 @@ const styles = {
   root: {
     textAlign: 'center'
   },
+  logo: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+
+    '& img': {
+      width: 30,
+      height: 30
+    }
+  },
   table: {
     margin: '20px auto'
   },
@@ -77,10 +87,32 @@ const styles = {
   button: {
     margin: '4px 10px',
     border: '1px solid #ddd'
+  },
+  order: {
+    display: 'inline-block',
+    margin: '0 3px 2px',
+    width: 0,
+    height: 0,
+    borderLeft: '6px solid transparent',
+    borderRight: '6px solid transparent',
+    borderTop: '6px solid #ddd',
+
+    '&.recover': {
+      margin: '0 3px',
+      borderLeft: '6px solid #ddd',
+      borderRight: '6px solid #ddd',
+      borderBottom: '6px solid #ddd'
+    }
   }
 }
 
+const FLYPYKEY = 'flypyStore'
+
 let inter = null
+
+function filterNumber(num, fixed) {
+  return Number.isInteger(num) ? num + '.' + '0'.repeat(fixed) : num.toFixed(fixed)
+}
 
 class App extends Component {
   inputRef = React.createRef()
@@ -96,10 +128,17 @@ class App extends Component {
     totalNum: 0,
     answers: [],
     inputValue: '',
-    isPlay: false
+    isPlay: false,
+    isOrderByFailNum: false,
+    isOrderByTotalTime: false
   }
 
   speedList = []
+  answersBackUpList = []
+  orderByFailNumList = []
+  orderByTotalTimeList = []
+
+  historyStore = null
 
   onChange = e => {
     if (!this.state.isPlay) return
@@ -116,8 +155,7 @@ class App extends Component {
 
     const nextItem = this.state.keyItr.next()
 
-    const duration = ((new Date().getTime() - (this.state.lastTime || this.state.startTime)) / 1000).toFixed(1)
-
+    const duration = Number.parseFloat(((new Date().getTime() - (this.state.lastTime || this.state.startTime)) / 1000).toFixed(1))
     if (this.speedList.length < 3) {
       this.speedList = this.speedList.concat([duration]).sort()
     } else {
@@ -128,16 +166,24 @@ class App extends Component {
           .sort()
       }
     }
-
+    const subject = this.state.subjectText
+    const lastFailNum = this.historyStore && this.historyStore[subject] ? this.historyStore[subject].failNum : 0
     let newAnswers = [
       {
-        subject: this.state.subjectText,
-        answer: mData[this.state.subjectText],
+        id: Number(
+          Math.random()
+            .toString()
+            .substr(3, 5) + Date.now()
+        ).toString(36),
+        subject: subject,
+        answer: mData[subject],
         myAnswer: value,
         isFail: isFail,
         isSlow: false,
-        hint: yData[mData[this.state.subjectText]],
-        duration: duration
+        hint: yData[mData[subject]],
+        duration: duration,
+        historyDuration: (this.historyStore && this.historyStore[subject] ? this.historyStore[subject].duration : 0) + duration,
+        historyFailNum: isFail ? lastFailNum + 1 : lastFailNum
       }
     ].concat(this.state.answers)
 
@@ -149,6 +195,37 @@ class App extends Component {
           isSlow: item.duration >= this.speedList[0]
         }
       })
+      setTimeout(() => {
+        this.answersBackUpList = newAnswers.slice()
+        this.orderByTotalTimeList = newAnswers.slice().sort((a, b) => {
+          if (a.historyDuration > b.historyDuration) {
+            return -1
+          }
+          if (a.historyDuration < b.historyDuration) {
+            return 1
+          }
+          return 0
+        })
+        this.orderByFailNumList = newAnswers.slice().sort((a, b) => {
+          if (a.historyFailNum > b.historyFailNum) {
+            return -1
+          }
+          if (a.historyFailNum < b.historyFailNum) {
+            return 1
+          }
+          return 0
+        })
+
+        const flypyStore = {}
+        newAnswers.forEach(item => {
+          const sObj = {
+            duration: item.historyDuration,
+            failNum: item.historyFailNum
+          }
+          flypyStore[item.subject] = sObj
+        })
+        localStorage.setItem(FLYPYKEY, JSON.stringify(flypyStore))
+      }, 0)
     }
 
     this.setState({
@@ -162,6 +239,7 @@ class App extends Component {
   }
 
   startGame = () => {
+    this.historyStore = JSON.parse(localStorage.getItem(FLYPYKEY))
     const list = _.shuffle(_.keys(mData))
     const itr = list[Symbol.iterator]()
     const timeStemp = new Date().getTime()
@@ -178,7 +256,11 @@ class App extends Component {
       answers: [],
       isPlay: true
     })
+
     this.speedList = []
+    this.answersBackUpList = []
+    this.orderByFailNumList = []
+    this.orderByTotalTimeList = []
 
     inter = setInterval(() => {
       this.setState({
@@ -202,16 +284,40 @@ class App extends Component {
     this.inputRef.current.focus()
   }
 
+  clearStore = () => {
+    localStorage.removeItem(FLYPYKEY)
+  }
+
+  onOrderByFailNum = () => {
+    if (this.orderByFailNumList.length < 1) return
+    this.setState({
+      isOrderByFailNum: !this.state.isOrderByFailNum,
+      isOrderByTotalTime: false,
+      answers: !this.state.isOrderByFailNum ? this.orderByFailNumList : this.answersBackUpList
+    })
+  }
+  onOrderByTotalTime = () => {
+    if (this.orderByTotalTimeList.length < 1) return
+    this.setState({
+      isOrderByTotalTime: !this.state.isOrderByTotalTime,
+      isOrderByFailNum: false,
+      answers: !this.state.isOrderByTotalTime ? this.orderByTotalTimeList : this.answersBackUpList
+    })
+  }
+
   render() {
     const { classes } = this.props
-    const { subjectText, hintText, useTime, correctNum, GameProcessNum, inputValue, totalNum, answers, isPlay } = this.state
+    const { subjectText, hintText, useTime, correctNum, GameProcessNum, inputValue, totalNum, answers, isPlay, isOrderByFailNum, isOrderByTotalTime } = this.state
     return (
       <div className={classes.root}>
-        <p>题目： {subjectText}</p>
+        <a className={classes.logo} href="https://github.com/bulatie/flypy-practice">
+          <img src="/github.png" alt="repository" />
+        </a>
+        <p>题： {subjectText}</p>
         <input className={classes.input} value={inputValue} onChange={this.onChange} ref={this.inputRef} />
         <p>{hintText}</p>
         <p>用时: {useTime}s</p>
-        <p>正确率: {totalNum ? (correctNum / totalNum * 100).toFixed(2) : 0}</p>
+        <p>正确率: {totalNum ? (correctNum / totalNum * 100).toFixed(2) : 0}%</p>
         <p>
           进度: {GameProcessNum} / {totalNum}
         </p>
@@ -224,31 +330,36 @@ class App extends Component {
         <button className={classes.button} onClick={this.showHint} disabled={!isPlay}>
           提示
         </button>
-
+        <button className={classes.button} onClick={this.clearStore} disabled={isPlay}>
+          清空历史
+        </button>
         <table className={classes.table}>
           <thead>
             <tr>
-              <th>题目</th>
+              <th>题</th>
               <th>答案</th>
               <th>回答</th>
               <th>用时</th>
               <th>提示</th>
+              <th onClick={this.onOrderByFailNum}>
+                错过<span className={classes.order + (isOrderByFailNum ? ' recover' : '')} />
+              </th>
+              <th onClick={this.onOrderByTotalTime}>
+                总时<span className={classes.order + (isOrderByTotalTime ? ' recover' : '')} />
+              </th>
             </tr>
           </thead>
           <tbody>
-            {answers.map((item, index) => {
+            {answers.map(item => {
               return (
-                <tr
-                  key={index}
-                  style={{
-                    color: item.isFail ? 'red' : item.isSlow ? 'purple' : 'green'
-                  }}
-                >
+                <tr key={item.id} style={{ color: item.isFail ? 'red' : item.isSlow ? 'purple' : 'green' }}>
                   <td>{item.subject}</td>
                   <td>{item.answer}</td>
                   <td>{item.myAnswer}</td>
-                  <td>{item.duration}</td>
+                  <td>{filterNumber(item.duration, 1)}</td>
                   <td>{item.hint}</td>
+                  <td>{item.historyFailNum}</td>
+                  <td>{filterNumber(item.historyDuration, 1)}</td>
                 </tr>
               )
             })}
