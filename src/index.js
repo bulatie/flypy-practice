@@ -113,7 +113,9 @@ const FLYPYKEY = 'flypyStore'
 let inter = null
 
 function filterNumber(num, fixed) {
-  return Number.isInteger(num) ? num + '.' + '0'.repeat(fixed) : num.toFixed(fixed)
+  return Number.isInteger(num)
+    ? num + '.' + '0'.repeat(fixed)
+    : num.toFixed(fixed)
 }
 
 class App extends Component {
@@ -157,7 +159,12 @@ class App extends Component {
 
     const nextItem = this.state.keyItr.next()
 
-    const duration = Number.parseFloat(((new Date().getTime() - (this.state.lastTime || this.state.startTime)) / 1000).toFixed(1))
+    const duration = Number.parseFloat(
+      (
+        (new Date().getTime() - (this.state.lastTime || this.state.startTime)) /
+        1000
+      ).toFixed(1)
+    )
     if (this.speedList.length < 3) {
       this.speedList = this.speedList.concat([duration]).sort()
     } else {
@@ -169,7 +176,10 @@ class App extends Component {
       }
     }
     const subject = this.state.subjectText
-    const lastFailNum = this.historyStore && this.historyStore[subject] ? this.historyStore[subject].failNum : 0
+    const lastFailNum =
+      this.historyStore && this.historyStore[subject]
+        ? this.historyStore[subject].failNum
+        : 0
     let newAnswers = [
       {
         id: Number(
@@ -184,7 +194,14 @@ class App extends Component {
         isSlow: false,
         hint: yData[mData[subject]],
         duration: duration,
-        historyDuration: (this.historyStore && this.historyStore[subject] ? this.historyStore[subject].duration : 0) + duration,
+        historyDuration: Number.parseFloat(
+          filterNumber(
+            (this.historyStore && this.historyStore[subject]
+              ? this.historyStore[subject].duration
+              : 0) + duration,
+            1
+          )
+        ),
         historyFailNum: isFail ? lastFailNum + 1 : lastFailNum
       }
     ].concat(this.state.answers)
@@ -251,12 +268,14 @@ class App extends Component {
       keyItr: itr,
       subjectText: itr.next().value,
       hintText: '',
-      useTime: 0,
+      useTime: '0',
       correctNum: 0,
       GameProcessNum: 0,
       totalNum: list.length,
       answers: [],
-      isPlay: true
+      isPlay: true,
+      isOrderByFailNum: false,
+      isOrderByTotalTime: false
     })
 
     this.speedList = []
@@ -266,9 +285,12 @@ class App extends Component {
 
     inter = setInterval(() => {
       this.setState({
-        useTime: ((new Date().getTime() - this.state.startTime) / 1000).toFixed(1)
+        useTime: filterNumber(
+          (new Date().getTime() - this.state.startTime) / 1000,
+          1
+        )
       })
-    }, 10)
+    }, 20)
     this.inputRef.current.focus()
   }
 
@@ -295,7 +317,9 @@ class App extends Component {
     this.setState({
       isOrderByFailNum: !this.state.isOrderByFailNum,
       isOrderByTotalTime: false,
-      answers: !this.state.isOrderByFailNum ? this.orderByFailNumList : this.answersBackUpList
+      answers: !this.state.isOrderByFailNum
+        ? this.orderByFailNumList
+        : this.answersBackUpList
     })
   }
   onOrderByTotalTime = () => {
@@ -303,36 +327,76 @@ class App extends Component {
     this.setState({
       isOrderByTotalTime: !this.state.isOrderByTotalTime,
       isOrderByFailNum: false,
-      answers: !this.state.isOrderByTotalTime ? this.orderByTotalTimeList : this.answersBackUpList
+      answers: !this.state.isOrderByTotalTime
+        ? this.orderByTotalTimeList
+        : this.answersBackUpList
     })
   }
 
   render() {
     const { classes } = this.props
-    const { subjectText, hintText, useTime, correctNum, GameProcessNum, inputValue, totalNum, answers, isPlay, isOrderByFailNum, isOrderByTotalTime } = this.state
+    const {
+      subjectText,
+      hintText,
+      useTime,
+      correctNum,
+      GameProcessNum,
+      inputValue,
+      totalNum,
+      answers,
+      isPlay,
+      isOrderByFailNum,
+      isOrderByTotalTime
+    } = this.state
     return (
       <div className={classes.root}>
-        <a className={classes.logo} href="https://github.com/bulatie/flypy-practice">
+        <a
+          className={classes.logo}
+          href="https://github.com/bulatie/flypy-practice"
+        >
           <img src={logoUrl} alt="repository" />
         </a>
         <p>题： {subjectText}</p>
-        <input className={classes.input} value={inputValue} onChange={this.onChange} ref={this.inputRef} />
+        <input
+          className={classes.input}
+          value={inputValue}
+          onChange={this.onChange}
+          ref={this.inputRef}
+        />
         <p>{hintText}</p>
         <p>用时: {useTime}s</p>
-        <p>正确率: {totalNum ? (correctNum / totalNum * 100).toFixed(2) : 0}%</p>
+        <p>
+          正确率: {totalNum ? (correctNum / totalNum * 100).toFixed(2) : 0}%
+        </p>
         <p>
           进度: {GameProcessNum} / {totalNum}
         </p>
-        <button className={classes.button} onClick={this.startGame} disabled={isPlay}>
+        <button
+          className={classes.button}
+          onClick={this.startGame}
+          disabled={isPlay}
+        >
           开始
         </button>
-        <button className={classes.button} onClick={this.stopGame} disabled={!isPlay}>
+        <button
+          className={classes.button}
+          onClick={this.stopGame}
+          disabled={!isPlay}
+        >
           停止
         </button>
-        <button className={classes.button} onClick={this.showHint} disabled={!isPlay}>
+        <button
+          className={classes.button}
+          onClick={this.showHint}
+          disabled={!isPlay}
+        >
           提示
         </button>
-        <button className={classes.button} onClick={this.clearStore} disabled={isPlay}>
+        <button
+          className={classes.button}
+          onClick={this.clearStore}
+          disabled={isPlay}
+        >
           清空历史
         </button>
         <table className={classes.table}>
@@ -344,17 +408,34 @@ class App extends Component {
               <th>用时</th>
               <th>提示</th>
               <th onClick={this.onOrderByFailNum}>
-                错过<span className={classes.order + (isOrderByFailNum ? ' recover' : '')} />
+                错过<span
+                  className={
+                    classes.order + (isOrderByFailNum ? ' recover' : '')
+                  }
+                />
               </th>
               <th onClick={this.onOrderByTotalTime}>
-                总时<span className={classes.order + (isOrderByTotalTime ? ' recover' : '')} />
+                总时<span
+                  className={
+                    classes.order + (isOrderByTotalTime ? ' recover' : '')
+                  }
+                />
               </th>
             </tr>
           </thead>
           <tbody>
             {answers.map(item => {
               return (
-                <tr key={item.id} style={{ color: item.isFail ? 'red' : item.isSlow ? 'purple' : 'green' }}>
+                <tr
+                  key={item.id}
+                  style={{
+                    color: item.isFail
+                      ? 'red'
+                      : item.isSlow
+                        ? 'purple'
+                        : 'green'
+                  }}
+                >
                   <td>{item.subject}</td>
                   <td>{item.answer}</td>
                   <td>{item.myAnswer}</td>
